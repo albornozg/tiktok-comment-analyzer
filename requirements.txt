@@ -1,5 +1,5 @@
 streamlit==1.39.0
 pandas==2.2.3
 nltk==3.9.1
-yt-dlp==2024.10.22
+selenium==4.25.0
 matplotlib==3.9.2
