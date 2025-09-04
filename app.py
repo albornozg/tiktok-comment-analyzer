@@ -1,9 +1,14 @@
 import streamlit as st
-import json
 import pandas as pd
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
-import subprocess
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+import json
 import os
 import tempfile
 import matplotlib
@@ -20,43 +25,68 @@ st.write("Enter a TikTok video URL to analyze the sentiment of its comments.")
 # Input URL
 url = st.text_input("TikTok Video URL", placeholder="https://www.tiktok.com/@username/video/123456789")
 
-# Function to run yt-dlp and fetch comments
-def fetch_comments(url, temp_dir, retries=3):
+# Function to scrape comments using Selenium
+def fetch_comments(url, max_comments=100, retries=3):
+    comments = []
     for attempt in range(retries):
         try:
-            output_file = os.path.join(temp_dir, "tiktok_info.json")
-            cmd = [
-                "yt-dlp",
-                "--skip-download",
-                "--write-comments",
-                "--no-warnings",
-                "--output",
-                output_file,
-                url
-            ]
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-            for f in os.listdir(temp_dir):
-                if f.endswith(".info.json"):
-                    return os.path.join(temp_dir, f)
-            return None
-        except subprocess.CalledProcessError as e:
-            if attempt < retries - 1:
-                st.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            # Set up headless Chrome
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
+            
+            driver = webdriver.Chrome(options=chrome_options)
+            
+            # Navigate to URL
+            driver.get(url)
+            
+            # Wait for comment section to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='comment-item']"))
+            )
+            
+            # Scroll to load comments
+            last_height = driver.execute_script("return document.body.scrollHeight")
+            while len(comments) < max_comments:
+                # Find comment elements
+                comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[class*='comment-item'] p[class*='comment-content']")
+                for elem in comment_elements:
+                    text = elem.text.strip()
+                    if text and len(comments) < max_comments:
+                        comments.append({"text": text, "likes": 0})  # Likes not scraped for simplicity
+                if len(comments) >= max_comments:
+                    break
+                
+                # Scroll down
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)  # Wait for new comments to load
+                new_height = driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:  # No more comments
+                    break
+                last_height = new_height
+            
+            driver.quit()
+            if comments:
+                return comments
+            else:
+                st.warning(f"Attempt {attempt + 1} found no comments. Retrying...")
                 continue
-            st.error(f"Error fetching comments: {e.stderr}")
+        except Exception as e:
+            if 'driver' in locals():
+                driver.quit()
+            if attempt < retries - 1:
+                st.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying...")
+                time.sleep(2)
+                continue
+            st.error(f"Error fetching comments: {str(e)}")
             return None
+    return None
 
 # Function to analyze comments
-def analyze_comments(json_file):
+def analyze_comments(comments):
     try:
-        with open(json_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        
-        # Extract comments (TikTok comments are nested under 'comments')
-        comments = [
-            {"text": c.get("text", ""), "likes": c.get("digg_count", 0)}
-            for c in data.get("comments", [])
-        ]
         if not comments:
             return None, None
         
@@ -77,20 +107,26 @@ def analyze_comments(json_file):
 # Process when URL is provided
 if url:
     with st.spinner("Fetching and analyzing comments..."):
+        # Use temporary directory for JSON
         with tempfile.TemporaryDirectory() as temp_dir:
-            json_file = fetch_comments(url, temp_dir)
-            if json_file:
+            comments = fetch_comments(url)
+            if comments:
+                # Save comments as JSON for download
+                json_file = os.path.join(temp_dir, "tiktok_comments.json")
+                with open(json_file, "w", encoding="utf-8") as f:
+                    json.dump(comments, f, ensure_ascii=False)
+                
                 # Provide JSON download link
                 with open(json_file, "rb") as f:
                     st.download_button(
                         label="Download JSON File",
                         data=f,
-                        file_name="tiktok_info.json",
+                        file_name="tiktok_comments.json",
                         mime="application/json"
                     )
                 
                 # Analyze comments
-                df, sentiment_dist = analyze_comments(json_file)
+                df, sentiment_dist = analyze_comments(comments)
                 if df is not None:
                     st.subheader("Analysis Results")
                     st.write(f"**Total Comments**: {len(df)}")
