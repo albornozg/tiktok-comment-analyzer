@@ -61,7 +61,7 @@ def fetch_comments(url, max_comments=100, retries=3):
                 
                 # Scroll down
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)  # Wait for new comments to load
+                time.sleep(3)  # Wait for new comments to load
                 new_height = driver.execute_script("return document.body.scrollHeight")
                 if new_height == last_height:  # No more comments
                     break
@@ -152,5 +152,6 @@ if url:
                     st.warning("No comments found or analysis failed.")
             else:
                 st.error("Failed to fetch comments. Please check the URL or try again.")
+
 
 
