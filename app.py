@@ -44,14 +44,14 @@ def fetch_comments(url, max_comments=100, retries=3):
             
             # Wait for comment section to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='comment-item']"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "span[data-e2e='comment-level-1']"))
             )
             
             # Scroll to load comments
             last_height = driver.execute_script("return document.body.scrollHeight")
             while len(comments) < max_comments:
                 # Find comment elements
-                comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[class*='comment-item'] p[class*='comment-content']")
+                comment_elements = driver.find_elements(By.CSS_SELECTOR, "span[data-e2e='comment-level-1']")
                 for elem in comment_elements:
                     text = elem.text.strip()
                     if text and len(comments) < max_comments:
@@ -152,3 +152,4 @@ if url:
                     st.warning("No comments found or analysis failed.")
             else:
                 st.error("Failed to fetch comments. Please check the URL or try again.")
+
