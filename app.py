@@ -33,41 +33,44 @@ def fetch_comments(url, max_comments=100, retries=3):
     comments = []
     for attempt in range(retries):
         try:
+            st.write(f"Attempt {attempt + 1}: Setting up Chrome options...")
             # Set up Chrome options
             chrome_options = Options()
             if use_headless:
                 chrome_options.add_argument("--headless")
+                st.write("Using headless mode.")
+            else:
+                st.write("Using non-headless mode.")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
             
+            st.write("Initializing WebDriver...")
             driver = webdriver.Chrome(options=chrome_options)
             
-            # Navigate to URL
+            st.write("Navigating to URL...")
             driver.get(url)
             
-            # Wait for comment section to load
+            st.write("Waiting for comments to load...")
             WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "span[data-e2e='comment-level-1']"))
             )
             
-            # Scroll to load comments
+            st.write("Scrolling to load comments...")
             last_height = driver.execute_script("return document.body.scrollHeight")
             while len(comments) < max_comments:
-                # Find comment elements
                 comment_elements = driver.find_elements(By.CSS_SELECTOR, "span[data-e2e='comment-level-1']")
                 for elem in comment_elements:
                     text = elem.text.strip()
                     if text and len(comments) < max_comments:
-                        comments.append({"text": text, "likes": 0})  # Likes not scraped for simplicity
+                        comments.append({"text": text, "likes": 0})
                 if len(comments) >= max_comments:
                     break
                 
-                # Scroll down
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)  # Wait for new comments to load
+                time.sleep(2)
                 new_height = driver.execute_script("return document.body.scrollHeight")
-                if new_height == last_height:  # No more comments
+                if new_height == last_height:
                     break
                 last_height = new_height
             
@@ -80,8 +83,9 @@ def fetch_comments(url, max_comments=100, retries=3):
         except Exception as e:
             if 'driver' in locals():
                 driver.quit()
+            st.error(f"Attempt {attempt + 1} failed at: {str(e)}")
             if attempt < retries - 1:
-                st.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying...")
+                st.warning("Retrying...")
                 time.sleep(2)
                 continue
             st.error(f"Error fetching comments: {str(e)}")
@@ -156,6 +160,7 @@ if url:
                     st.warning("No comments found or analysis failed.")
             else:
                 st.error("Failed to fetch comments. Please check the URL or try again.")
+
 
 
 
