@@ -22,6 +22,9 @@ nltk.download('vader_lexicon', quiet=True)
 st.title("TikTok Comments Sentiment Analysis")
 st.write("Enter a TikTok video URL to analyze the sentiment of its comments.")
 
+# Add headless mode toggle
+use_headless = st.checkbox("Use Headless Mode", value=True, help="Disable for non-headless testing to bypass anti-bot measures.")
+
 # Input URL
 url = st.text_input("TikTok Video URL", placeholder="https://www.tiktok.com/@username/video/123456789")
 
@@ -30,9 +33,10 @@ def fetch_comments(url, max_comments=100, retries=3):
     comments = []
     for attempt in range(retries):
         try:
-            # Set up headless Chrome
+            # Set up Chrome options
             chrome_options = Options()
-            chrome_options.add_argument("--headless")
+            if use_headless:
+                chrome_options.add_argument("--headless")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
@@ -61,7 +65,7 @@ def fetch_comments(url, max_comments=100, retries=3):
                 
                 # Scroll down
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(3)  # Wait for new comments to load
+                time.sleep(2)  # Wait for new comments to load
                 new_height = driver.execute_script("return document.body.scrollHeight")
                 if new_height == last_height:  # No more comments
                     break
@@ -152,6 +156,7 @@ if url:
                     st.warning("No comments found or analysis failed.")
             else:
                 st.error("Failed to fetch comments. Please check the URL or try again.")
+
 
 
 
