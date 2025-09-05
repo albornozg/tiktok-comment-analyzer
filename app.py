@@ -52,7 +52,7 @@ def fetch_comments(url, max_comments=100, retries=3):
             driver.get(url)
             
             st.write("Waiting for comments to load...")
-            WebDriverWait(driver, 20).until(
+            WebDriverWait(driver, 50).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "span[data-e2e='comment-level-1']"))
             )
             
@@ -160,6 +160,7 @@ if url:
                     st.warning("No comments found or analysis failed.")
             else:
                 st.error("Failed to fetch comments. Please check the URL or try again.")
+
 
 
 
